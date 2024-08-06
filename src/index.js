@@ -2,16 +2,70 @@
 // it will be used by any DApp, so we are already including it here
 const { ethers } = require("ethers");
 
+function hexToStr(hex){
+  return ethers.toUtf8String(hex);
+}
+function strToHex(payload){
+  return ethers.hexlify(ethers.toUtf8Bytes(payload))
+}
+function isNum(num){
+  return !isNaN(num)
+}
+let users = []
+let total = 0
 const rollup_server = process.env.ROLLUP_HTTP_SERVER_URL;
 console.log("HTTP rollup_server url is " + rollup_server);
 
 async function handle_advance(data) {
   console.log("Received advance request data " + JSON.stringify(data));
+
+  const metadata = data['metadata']
+  const sender = metadata['msg_sender']
+  const payload = data['payload']
+
+  let sentence = hexToStr(payload)
+  if(isNum(sentence)){
+      const report_req = await fetch(rollup_server + "/report", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ payload: strToHex('The sentence should be on hex format') }),
+    });
+    return 'reject'
+  }
+  users.push(sender);
+  total++
+  const reports_req = await fetch(rollup_server + "/report", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ payload: strToHex(sentence) }),
+    });
   return "accept";
 }
 
 async function handle_inspect(data) {
   console.log("Received inspect request data " + JSON.stringify(data));
+
+  let res;
+  let payload = data['payload']
+  let route = hexToStr(payload)
+  if(route === 'list'){
+    res = JSON.stringify({total})
+  }else if(route === 'total'){
+    res = JSON.stringify({users})
+  }else{
+    res = 'The route is unknown'
+  }
+  const report_req = await fetch(rollup_server + "/report", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ payload: strToHex('The sentence should be on hex format') }),
+    });
   return "accept";
 }
 
