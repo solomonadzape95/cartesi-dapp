@@ -11,6 +11,16 @@ function strToHex(payload){
 function isNum(num){
   return !isNaN(num)
 }
+function genPassWord(characterSet, len) {
+  let password = "";
+  const randomBytes = new Uint8Array(len);
+  window.crypto.getRandomValues(randomBytes);
+  for (let i = 0; i < len; i++) {
+    let randomIndex = randomBytes[i] % characterSet.length;
+    password += characterSet[randomIndex];
+  }
+  return password;
+}
 let users = []
 let total = 0
 const rollup_server = process.env.ROLLUP_HTTP_SERVER_URL;
@@ -20,45 +30,30 @@ async function handle_advance(data) {
   console.log("Received advance request data " + JSON.stringify(data));
 
   const metadata = data['metadata']
-  const sender = metadata['msg_sender']
   const payload = data['payload']
 
-  let sentence = hexToStr(payload)
-  if(isNum(sentence)){
-      const report_req = await fetch(rollup_server + "/report", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ payload: strToHex('The sentence should be on hex format') }),
-    });
-    return 'reject'
-  }
-  users.push(sender);
-  total++
+ const bg = payload.len <= 6 ? "#D1364E" : payload.len > 8 ? "#1c815a" : "#BE4E3A";
+  let characterSet = "0123456789";
+  characterSet = payload.letters
+    ? characterSet + "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+    : characterSet;
+  characterSet = payload.syms ? characterSet + "!@#$%^&*_-/+=" : characterSet;
+  let pwd = genPassWord(characterSet)
   const reports_req = await fetch(rollup_server + "/report", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ payload: strToHex(sentence) }),
+      body: JSON.stringify({ payload: strToHex({password:pwd,bg:bg}) }),
     });
   return "accept";
 }
 
 async function handle_inspect(data) {
   console.log("Received inspect request data " + JSON.stringify(data));
-
   let res;
   let payload = data['payload']
   let route = hexToStr(payload)
-  if(route === 'list'){
-    res = JSON.stringify({total})
-  }else if(route === 'total'){
-    res = JSON.stringify({users})
-  }else{
-    res = 'The route is unknown'
-  }
   const report_req = await fetch(rollup_server + "/report", {
       method: "POST",
       headers: {
